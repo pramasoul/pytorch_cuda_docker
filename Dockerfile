@@ -1,8 +1,9 @@
 FROM nvidia/cuda:10.2-base
 
 # install git for accessing repositories and acl to make /opt and /root and all files created within by default accessible for all users
+# install less for debugging
 SHELL ["/bin/bash", "-c"]
-RUN apt-get update && apt-get install -y --no-install-recommends acl git && \
+RUN apt-get update && apt-get install -y --no-install-recommends acl git less && \
     chmod -R a+rwX,u+s,g+x /root && \
     chmod -R a+rwX,u+s,g+s /opt && \
     echo "umask 0000" >> /etc/profile && \
@@ -29,6 +30,9 @@ RUN umask 0000 && conda update -n base -c defaults conda && \
     conda install -n torch -c conda-forge imageio matplotlib seaborn pandas jupyter jupyterlab scikit-image scikit-learn tqdm \
         jupyter_contrib_nbextensions nodejs tensorboard grpcio plotly ipympl widgetsnbextension jupyter_nbextensions_configurator
 
+# Patch update PILLOW version reference:
+RUN sed -i 's/Image.PILLOW_VERSION/Image.__version__/' /opt/conda/envs/torch/lib/python3.7/site-packages/fastai/utils/collect_env.py
+
 # This would install pillow-simd with optimized libjpeg
 # but currently this leads to a version clash of pillow 6.1 and pillow-simd 6.0
 # RUN conda uninstall -n torch -y --force pillow pil jpeg libtiff libjpeg-turbo && \
@@ -48,6 +52,7 @@ RUN umask 0000 && echo "source activate torch" >> ~/.bashrc && \
 
 # configure jupyter-lab to run in the docker image as root with bash as terminal and password protection
 # pass the password as command line argument --build-arg NOTEBOOK_PASSWORD=xxx where xxx is a sha1 hash as described here https://jupyter-notebook.readthedocs.io/en/stable/public_server.html#preparing-a-hashed-password
+# configure jupyter-lab to run using SSL/TLS (e.g https) per https://jupyter-notebook.readthedocs.io/en/stable/public_server.html#running-a-public-notebook-server
 # notebook directory is /opt/notebooks ==> this should be your mount point
 ARG NOTEBOOK_PASSWORD
 RUN umask 0000 && jupyter-lab --generate-config
@@ -59,8 +64,12 @@ RUN umask 0000 && sed -i '/c.NotebookApp.notebook_dir/c\c.NotebookApp.notebook_d
     sed -i '/c.NotebookApp.terminado_settings/c\c.NotebookApp.terminado_settings = {"'"shell_command"'":["'"bash"'"]}' ~/.jupyter/jupyter_notebook_config.py && \
     sed -i '/c.NotebookApp.allow_root/c\c.NotebookApp.allow_root = True' ~/.jupyter/jupyter_notebook_config.py && \
     sed -i '/c.NotebookApp.password/c\c.NotebookApp.password = "'"$NOTEBOOK_PASSWORD"'"' ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i '/c.NotebookApp.certfile/c\c.NotebookApp.certfile = "'"/root/.jupyter/labcert.pem"'"' ~/.jupyter/jupyter_notebook_config.py && \
+    sed -i '/c.NotebookApp.keyfile/c\c.NotebookApp.keyfile = "'"/root/.jupyter/labkey.key"'"' ~/.jupyter/jupyter_notebook_config.py && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager jupyterlab_tensorboard jupyter-matplotlib jupyterlab-plotly plotlywidget && \
     mkdir /opt/notebooks
+COPY labcert.pem labkey.key /root/.jupyter/
+
 WORKDIR /opt/notebooks
 
 # Set the random seed and copy the utility scripts to the image
