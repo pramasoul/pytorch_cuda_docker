@@ -28,7 +28,8 @@ RUN umask 0000 && conda update -n base -c defaults conda && \
     conda install -n torch pytorch torchvision cudatoolkit -c pytorch && \
     conda install -n torch -c pytorch -c fastai fastai && \
     conda install -n torch -c conda-forge imageio matplotlib seaborn pandas jupyter jupyterlab scikit-image scikit-learn tqdm \
-        jupyter_contrib_nbextensions nodejs tensorboard grpcio plotly ipympl widgetsnbextension jupyter_nbextensions_configurator
+        jupyter_contrib_nbextensions nodejs tensorboard grpcio plotly ipympl widgetsnbextension jupyter_nbextensions_configurator \
+	ipywidgets
 
 # Patch update PILLOW version reference:
 RUN sed -i 's/Image.PILLOW_VERSION/Image.__version__/' /opt/conda/envs/torch/lib/python3.7/site-packages/fastai/utils/collect_env.py
@@ -52,7 +53,7 @@ RUN umask 0000 && echo "source activate torch" >> ~/.bashrc && \
 
 # configure jupyter-lab to run in the docker image as root with bash as terminal and password protection
 # pass the password as command line argument --build-arg NOTEBOOK_PASSWORD=xxx where xxx is a sha1 hash as described here https://jupyter-notebook.readthedocs.io/en/stable/public_server.html#preparing-a-hashed-password
-# configure jupyter-lab to run using SSL/TLS (e.g https) per https://jupyter-notebook.readthedocs.io/en/stable/public_server.html#running-a-public-notebook-server
+# configure jupyter-lab to run using SSL/TLS (i.e. https) per https://jupyter-notebook.readthedocs.io/en/stable/public_server.html#running-a-public-notebook-server
 # notebook directory is /opt/notebooks ==> this should be your mount point
 ARG NOTEBOOK_PASSWORD
 RUN umask 0000 && jupyter-lab --generate-config
@@ -67,6 +68,7 @@ RUN umask 0000 && sed -i '/c.NotebookApp.notebook_dir/c\c.NotebookApp.notebook_d
     sed -i '/c.NotebookApp.certfile/c\c.NotebookApp.certfile = "'"/root/.jupyter/labcert.pem"'"' ~/.jupyter/jupyter_notebook_config.py && \
     sed -i '/c.NotebookApp.keyfile/c\c.NotebookApp.keyfile = "'"/root/.jupyter/labkey.key"'"' ~/.jupyter/jupyter_notebook_config.py && \
     jupyter labextension install @jupyter-widgets/jupyterlab-manager jupyterlab_tensorboard jupyter-matplotlib jupyterlab-plotly plotlywidget && \
+    jupyter nbextension enable --py widgetsnbextension && \
     mkdir /opt/notebooks
 COPY labcert.pem labkey.key /root/.jupyter/
 
