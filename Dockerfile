@@ -91,8 +91,9 @@ ENV HOME /root/
 
 # for packages added later without having to rebuild the whole 
 RUN umask 0000 &&  \
-    source activate torch &&\
+    source activate torch && \
     pip install jupyterlab-git && \
+    pip install planetaryimage && \
     jupyter lab build
 
 # Make port 8888 available to the world outside this container
